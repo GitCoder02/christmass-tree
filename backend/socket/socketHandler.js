@@ -128,12 +128,13 @@ const socketHandler = (io) => {
         if (!session) return;
         
         session.treeSize = treeSize;
-        session.ornaments = [];
+        // DO NOT clear ornaments when resizing the tree. Preserve current decorations
+        // Optionally, you could apply a scale transform here to reposition ornaments.
         await session.save();
-        
+
         io.to(sessionId).emit('tree-size-changed', {
           treeSize,
-          ornaments: []
+          ornaments: session.ornaments
         });
         
         console.log(`🎄 Tree size changed to ${treeSize} in session ${sessionId}`);

@@ -46,21 +46,23 @@ const InventoryPanel = () => {
       : ornamentTypes.filter((o) => o.category === selectedCategory);
 
   return (
-    <div className="fixed left-4 top-1/2 -translate-y-1/2 z-40">
+    <div className="fixed z-40 left-1/2 bottom-4 -translate-x-1/2 sm:left-4 sm:top-1/2 sm:bottom-auto sm:-translate-x-0 sm:-translate-y-1/2">
       {/* Collapse Button */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute -right-3 top-4 w-8 h-8 bg-green-600 hover:bg-green-500 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 border-2 border-white/20"
+        className="absolute -top-3 left-1/2 -translate-x-1/2 sm:translate-x-0 sm:-top-0 sm:-right-3 sm:left-auto w-10 h-6 bg-green-600 hover:bg-green-500 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 border-2 border-white/20 text-sm text-white"
+        aria-label="Toggle inventory"
       >
-        <span className="text-white text-lg">
-          {isCollapsed ? '→' : '←'}
+        <span>
+          {isCollapsed ? 'Open' : 'Hide'}
         </span>
       </button>
 
       <div
         className={`bg-gradient-to-b from-green-900/80 to-green-950/80 backdrop-blur-xl rounded-2xl p-4 shadow-2xl border border-green-500/30 transition-all duration-300 ${
-          isCollapsed ? 'w-0 p-0 opacity-0' : 'w-[340px]'
+          isCollapsed ? 'w-0 p-0 opacity-0' : 'sm:w-[340px] w-[95%]'
         }`}
+        style={{ maxWidth: '680px' }}
       >
         {!isCollapsed && (
           <>

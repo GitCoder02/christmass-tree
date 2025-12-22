@@ -1,38 +1,38 @@
 const MultiplayerCursor = ({ cursor }) => {
   // BULLETPROOF VALIDATION
-  console.log('MultiplayerCursor received:', cursor);
-  
-  // Check 1: cursor exists
   if (!cursor) {
     console.warn('MultiplayerCursor: cursor is null/undefined');
     return null;
   }
-  
-  // Check 2: x property exists and is a number
+
   if (!('x' in cursor) || typeof cursor.x !== 'number') {
     console.warn('MultiplayerCursor: invalid x coordinate', cursor);
     return null;
   }
-  
-  // Check 3: y property exists and is a number
+
   if (!('y' in cursor) || typeof cursor.y !== 'number') {
     console.warn('MultiplayerCursor: invalid y coordinate', cursor);
     return null;
   }
-  
-  // Check 4: Not NaN
+
   if (isNaN(cursor.x) || isNaN(cursor.y)) {
     console.warn('MultiplayerCursor: NaN coordinates', cursor);
     return null;
   }
-  
+
+  // Compute normalization once and convert to pixels if needed
+  const normalized = Math.abs(cursor.x) <= 1 && Math.abs(cursor.y) <= 1;
+  const pixelX = normalized ? (window.innerWidth * (0.5 + cursor.x)) : cursor.x;
+  const pixelY = normalized ? (window.innerHeight * (0.5 + cursor.y)) : cursor.y;
+
   return (
     <div
-      className="fixed pointer-events-none z-[100] transition-all duration-75"
+      className="fixed pointer-events-none z-[100] transition-transform duration-100 ease-linear"
       style={{
-        left: cursor.x,
-        top: cursor.y,
-        transform: 'translate(-12px, -12px)'
+        left: pixelX,
+        top: pixelY,
+        transform: 'translate(-12px, -12px)',
+        willChange: 'transform, left, top'
       }}
     >
       {/* Cursor SVG */}

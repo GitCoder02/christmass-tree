@@ -29,6 +29,26 @@ const WorkspacePage = () => {
   const [currentTreeSize, setCurrentTreeSize] = useState('medium');
   const [otherCursors, setOtherCursors] = useState(new Map());
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showSaved, setShowSaved] = useState(false);
+  const isSavingRef = useRef(isSaving);
+  const savedTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    isSavingRef.current = isSaving;
+  }, [isSaving]);
+
+  const triggerSavedToast = () => {
+    setShowSaved(true);
+    if (savedTimeoutRef.current) clearTimeout(savedTimeoutRef.current);
+    savedTimeoutRef.current = setTimeout(() => setShowSaved(false), 1500);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (savedTimeoutRef.current) clearTimeout(savedTimeoutRef.current);
+    };
+  }, []);
   
   const canvasRef = useRef(null);
   const treeContainerRef = useRef(null);
@@ -79,11 +99,19 @@ const WorkspacePage = () => {
     if (!socket || !isConnected) return;
     
     const handleMouseMove = (e) => {
+      // Save absolute mouse for drop calculations
+      window.lastMouseX = e.clientX;
+      window.lastMouseY = e.clientY;
+
+      // Normalize relative to viewport center so different-resolution clients see cursors in same logical place
+      const normX = (e.clientX - (window.innerWidth / 2)) / window.innerWidth; // -0.5..0.5 normalized around center
+      const normY = (e.clientY - (window.innerHeight / 2)) / window.innerHeight;
+
       socket.emit('cursor-move', {
         sessionId,
         userId,
-        x: e.clientX,
-        y: e.clientY
+        x: normX,
+        y: normY
       });
     };
     
@@ -187,22 +215,30 @@ const WorkspacePage = () => {
     
     socket.on('ornament-added', ({ ornament }) => {
       setOrnaments(prev => [...prev, ornament]);
+      if (isSavingRef.current) triggerSavedToast();
+      setIsSaving(false);
     });
     
     socket.on('ornament-moved', ({ ornamentId, position }) => {
       setOrnaments(prev =>
         prev.map(orn => (orn.id === ornamentId ? { ...orn, position } : orn))
       );
+      if (isSavingRef.current) triggerSavedToast();
+      setIsSaving(false);
     });
     
     socket.on('ornament-deleted', ({ ornamentId }) => {
       setOrnaments(prev => prev.filter(orn => orn.id !== ornamentId));
+      if (isSavingRef.current) triggerSavedToast();
+      setIsSaving(false);
     });
     
     socket.on('ornament-resized', ({ ornamentId, scale }) => {
       setOrnaments(prev =>
         prev.map(orn => (orn.id === ornamentId ? { ...orn, scale } : orn))
       );
+      if (isSavingRef.current) triggerSavedToast();
+      setIsSaving(false);
     });
     
     socket.on('tree-size-changed', ({ treeSize, ornaments: newOrnaments }) => {
@@ -211,6 +247,8 @@ const WorkspacePage = () => {
       setOrnaments(newOrnaments);
       const positions = generateTreePositions(treeSize);
       setTreePositions(positions);
+      if (isSavingRef.current) triggerSavedToast();
+      setIsSaving(false);
     });
     
     return () => {
@@ -263,34 +301,40 @@ const WorkspacePage = () => {
     
     if (!socket || !canvasRef.current) return;
     
-    // Get canvas dimensions and position
+    // Get canvas dimensions and position (absolute values)
     const canvasRect = canvasRef.current.getBoundingClientRect();
-    const canvasWidth = canvasRect.width;
-    const canvasHeight = canvasRect.height;
-    const canvasCenterX = canvasWidth / 2;
-    const canvasCenterY = canvasHeight / 2;
-    
+    const canvasCenterX = canvasRect.left + canvasRect.width / 2;
+    const canvasCenterY = canvasRect.top + canvasRect.height / 2;
+
+    // Use absolute mouse position (saved in mousemove) rather than delta-based calculation.
+    // This avoids race conditions when another player moved the ornament mid-drag.
+    const dropX = window.lastMouseX || (canvasCenterX);
+    const dropY = window.lastMouseY || (canvasCenterY);
+
+    // Position relative to canvas center
+    const relativeX = dropX - canvasCenterX;
+    const relativeY = dropY - canvasCenterY;
+
+    // Clamp to canvas bounds (with padding)
+    const maxX = canvasRect.width / 2 - 50;
+    const maxY = canvasRect.height / 2 - 50;
+
+    const clampedPosition = {
+      x: Math.max(-maxX, Math.min(maxX, relativeX)),
+      y: Math.max(-maxY, Math.min(maxY, relativeY))
+    };
+
     const existingOrnament = ornaments.find(o => o.id === active.id);
-    
+
     if (existingOrnament) {
-      // Moving existing ornament - free placement anywhere on canvas
-      const newPosition = {
-        x: existingOrnament.position.x + delta.x,
-        y: existingOrnament.position.y + delta.y
-      };
-      
-      // Clamp to canvas bounds (with padding)
-      const clampedPosition = {
-        x: Math.max(-canvasCenterX + 50, Math.min(canvasCenterX - 50, newPosition.x)),
-        y: Math.max(-canvasCenterY + 50, Math.min(canvasCenterY - 50, newPosition.y))
-      };
-      
+      // Move existing ornament to the absolute drop location
+      setIsSaving(true);
       socket.emit('move-ornament', {
         sessionId,
         ornamentId: active.id,
         position: clampedPosition
       });
-      
+
       setOrnaments(prev =>
         prev.map(orn => (orn.id === active.id ? { ...orn, position: clampedPosition } : orn))
       );
@@ -298,59 +342,46 @@ const WorkspacePage = () => {
       // Adding new ornament from inventory
       const ornamentType = ornamentTypes.find(t => t.id === active.id);
       if (!ornamentType) return;
-      
-      // Calculate final position relative to canvas center
-      const newPosition = {
-        x: delta.x,
-        y: delta.y
-      };
-      
-      // Clamp to canvas bounds
-      const finalPosition = {
-        x: Math.max(-canvasCenterX + 50, Math.min(canvasCenterX - 50, newPosition.x)),
-        y: Math.max(-canvasCenterY + 50, Math.min(canvasCenterY - 50, newPosition.y))
-      };
-      
-      console.log('📍 Final drop position:', finalPosition);
-      
+
       const newOrnament = {
         id: uuidv4(),
         ...ornamentType,
-        position: finalPosition,
+        position: clampedPosition,
         scale: 1,
         rotation: 0,
         addedBy: socket.id
       };
-      
+
+      setIsSaving(true);
       socket.emit('add-ornament', {
         sessionId,
         ornament: newOrnament
       });
-      
+
       setOrnaments(prev => [...prev, newOrnament]);
     }
   };
   
   const handleDeleteOrnament = (ornamentId) => {
     if (!socket) return;
-    
+    setIsSaving(true);
     socket.emit('delete-ornament', {
       sessionId,
       ornamentId
     });
-    
+
     setOrnaments(prev => prev.filter(o => o.id !== ornamentId));
   };
   
   const handleResizeOrnament = (ornamentId, newScale) => {
     if (!socket) return;
-    
+    setIsSaving(true);
     socket.emit('resize-ornament', {
       sessionId,
       ornamentId,
       scale: newScale
     });
-    
+
     setOrnaments(prev =>
       prev.map(orn => (orn.id === ornamentId ? { ...orn, scale: newScale } : orn))
     );
@@ -399,6 +430,23 @@ const WorkspacePage = () => {
           {isFullscreen ? '⛶' : '⛶'}
         </span>
       </button>
+
+      {/* Saving Indicator */}
+      {isSaving && (
+        <div className="fixed top-6 right-6 z-50 bg-white/10 text-white px-3 py-2 rounded-lg border border-white/20 backdrop-blur-sm flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse" />
+          <span className="text-sm">Saving...</span>
+        </div>
+      )}
+      {/* Saved Toast */}
+      {showSaved && (
+        <div className="fixed top-6 right-6 z-50 bg-green-600 text-white px-3 py-2 rounded-lg border border-white/10 backdrop-blur-sm flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-7.362 7.362a1 1 0 01-1.414 0L3.293 9.07a1 1 0 011.414-1.414l3.414 3.414 6.648-6.648a1 1 0 011.414 0z" clipRule="evenodd" />
+          </svg>
+          <span className="text-sm font-medium">Saved</span>
+        </div>
+      )}
       
       {/* Multiplayer Cursors */}
       {otherCursors && otherCursors.size > 0 && (
@@ -466,6 +514,47 @@ const WorkspacePage = () => {
                 />
               </div>
             ))}
+
+            {/* Ghost previews for remote users who are dragging */}
+            {Array.from(otherCursors.values())
+              .filter(c => c && c.isDragging && c.draggingItem && typeof c.x === 'number' && typeof c.y === 'number')
+              .map((c, idx) => {
+                // Convert normalized coords to pixels when needed
+                const normalized = Math.abs(c.x) <= 1 && Math.abs(c.y) <= 1;
+                const pixelX = normalized ? (window.innerWidth * (0.5 + c.x)) : c.x;
+                const pixelY = normalized ? (window.innerHeight * (0.5 + c.y)) : c.y;
+
+                const canvasRect = canvasRef.current ? canvasRef.current.getBoundingClientRect() : null;
+                if (!canvasRect) return null;
+
+                const canvasCenterX = canvasRect.left + canvasRect.width / 2;
+                const canvasCenterY = canvasRect.top + canvasRect.height / 2;
+
+                const relativeX = pixelX - canvasCenterX;
+                const relativeY = pixelY - canvasCenterY;
+
+                const item = c.draggingItem;
+
+                return (
+                  <div
+                    key={`ghost-${c.userId || idx}`}
+                    className="absolute pointer-events-none opacity-80"
+                    style={{
+                      left: '50%',
+                      top: '50%',
+                      transform: `translate(calc(-50% + ${relativeX}px), calc(-50% + ${relativeY}px))`,
+                      zIndex: 30
+                    }}
+                  >
+                    <div className="text-5xl scale-110 filter drop-shadow-lg opacity-90 animate-pulse select-none">
+                      {item.emoji}
+                    </div>
+                    <div className="absolute top-full mt-1 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-2 py-1 rounded-md">
+                      {c.name || 'Guest'}
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         </div>
         

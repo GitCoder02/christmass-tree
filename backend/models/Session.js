@@ -33,7 +33,7 @@ const sessionSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
-    expires: 86400 // Auto-delete after 24 hours
+    // Note: removed automatic TTL expiration so sessions persist until explicitly deleted
   },
   lastActivity: {
     type: Date,
