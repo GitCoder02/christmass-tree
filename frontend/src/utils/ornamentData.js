@@ -6,6 +6,7 @@ export const ornamentTypes = [
     type: 'bauble',
     color: '#C41E3A',
     emoji: '🔴',
+    image: '/assets/ornaments/bauble-red.png',
     category: 'ornament'
   },
   {
@@ -14,6 +15,7 @@ export const ornamentTypes = [
     type: 'bauble',
     color: '#FFD700',
     emoji: '🟡',
+    image: '/assets/ornaments/bauble-gold.png',
     category: 'ornament'
   },
   {
@@ -22,6 +24,7 @@ export const ornamentTypes = [
     type: 'bauble',
     color: '#4169E1',
     emoji: '🔵',
+    image: '/assets/ornaments/bauble-blue.png',
     category: 'ornament'
   },
   {
@@ -30,6 +33,7 @@ export const ornamentTypes = [
     type: 'star',
     color: '#FFD700',
     emoji: '⭐',
+    image: '/assets/ornaments/star.png',
     category: 'ornament'
   },
   {
@@ -46,6 +50,7 @@ export const ornamentTypes = [
     type: 'candy',
     color: '#FF0000',
     emoji: '🍬',
+    image: '/assets/ornaments/candy-cane.png',
     category: 'ornament'
   },
   {
@@ -54,6 +59,7 @@ export const ornamentTypes = [
     type: 'snowflake',
     color: '#FFFFFF',
     emoji: '❄️',
+    image: '/assets/ornaments/snowflake.png',
     category: 'ornament'
   },
   {
@@ -62,6 +68,7 @@ export const ornamentTypes = [
     type: 'ribbon',
     color: '#FF69B4',
     emoji: '🎀',
+    image: '/assets/ornaments/ribbon.png',
     category: 'ornament'
   },
   {
@@ -70,6 +77,7 @@ export const ornamentTypes = [
     type: 'bell',
     color: '#FFD700',
     emoji: '🔔',
+    image: '/assets/ornaments/bell.png',
     category: 'ornament'
   },
   {
@@ -87,6 +95,7 @@ export const ornamentTypes = [
     type: 'gift',
     color: '#8B4513',
     emoji: '🎁',
+    image: '/assets/ornaments/gift.png',
     category: 'decoration'
   },
   {

@@ -68,20 +68,40 @@ const OrnamentItem = ({
           position: 'relative'
         }}
       >
-        {/* Ornament */}
-        <div
-          style={{
-            fontSize: currentSize,
-            filter: isDragging 
-              ? 'drop-shadow(0 4px 12px rgba(0,0,0,0.6))' 
-              : 'drop-shadow(0 2px 6px rgba(0,0,0,0.4))',
-            transform: `rotate(${ornament.rotation || 0}deg)`,
-            transition: isDragging ? 'none' : 'filter 0.2s ease'
-          }}
-          className="select-none"
-        >
-          {ornament.emoji}
-        </div>
+        {/* Ornament - Image or Emoji */}
+        {ornament.image ? (
+          <img
+            src={ornament.image}
+            alt={ornament.name}
+            draggable={false}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              filter: isDragging 
+                ? 'drop-shadow(0 4px 12px rgba(0,0,0,0.6))' 
+                : 'drop-shadow(0 2px 6px rgba(0,0,0,0.4))',
+              transform: `rotate(${ornament.rotation || 0}deg)`,
+              transition: isDragging ? 'none' : 'filter 0.2s ease',
+              pointerEvents: 'none'
+            }}
+            className={`select-none ${isPlaced ? 'ornament-placed' : ''}`}
+          />
+        ) : (
+          <div
+            style={{
+              fontSize: currentSize,
+              filter: isDragging 
+                ? 'drop-shadow(0 4px 12px rgba(0,0,0,0.6))' 
+                : 'drop-shadow(0 2px 6px rgba(0,0,0,0.4))',
+              transform: `rotate(${ornament.rotation || 0}deg)`,
+              transition: isDragging ? 'none' : 'filter 0.2s ease'
+            }}
+            className="select-none"
+          >
+            {ornament.emoji}
+          </div>
+        )}
         
         {/* Control Buttons - Only visible when placed and clicked */}
         {isPlaced && showControls && (

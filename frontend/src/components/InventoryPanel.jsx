@@ -2,9 +2,12 @@ import { useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { ornamentTypes } from '../utils/ornamentData';
 
-const DraggableOrnament = ({ ornament }) => {
+const DraggableOrnament = ({ ornament, index }) => {
+  // Use a unique ID combining ornament ID and index so we can drag the same ornament multiple times
+  const draggableId = `inventory-${ornament.id}-${index}`;
+  
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
-    id: ornament.id,
+    id: draggableId
   });
 
   const style = transform
@@ -95,7 +98,8 @@ const InventoryPanel = () => {
               {filteredOrnaments.map((ornament, index) => (
                 <DraggableOrnament 
                   key={`${ornament.id}-${index}`} 
-                  ornament={ornament} 
+                  ornament={ornament}
+                  index={index}
                 />
               ))}
             </div>

@@ -33,6 +33,7 @@ const WorkspacePage = () => {
   const [showSaved, setShowSaved] = useState(false);
   const isSavingRef = useRef(isSaving);
   const savedTimeoutRef = useRef(null);
+  const [isUiVisible, setIsUiVisible] = useState(true);
 
   useEffect(() => {
     isSavingRef.current = isSaving;
@@ -272,9 +273,23 @@ const WorkspacePage = () => {
     
     const existingOrnament = ornaments.find(o => o.id === event.active.id);
     if (existingOrnament) {
+      // It's a placed ornament being moved
       setActiveDragItem(existingOrnament);
     } else {
-      const ornamentType = ornamentTypes.find(t => t.id === event.active.id);
+      // It's from inventory - could be inventory-{ornamentId}-{index}
+      let ornamentType = null;
+      
+      if (event.active.id.startsWith('inventory-')) {
+        // Extract ornamentId from "inventory-{ornamentId}-{index}" format
+        const parts = event.active.id.split('-');
+        // Remove 'inventory' prefix and last part (index)
+        const ornamentId = parts.slice(1, -1).join('-');
+        ornamentType = ornamentTypes.find(t => t.id === ornamentId);
+      } else {
+        // Fallback to old format for backward compatibility
+        ornamentType = ornamentTypes.find(t => t.id === event.active.id);
+      }
+      
       if (ornamentType) {
         setActiveDragItem(ornamentType);
         if (socket) {
@@ -327,7 +342,7 @@ const WorkspacePage = () => {
     const existingOrnament = ornaments.find(o => o.id === active.id);
 
     if (existingOrnament) {
-      // Move existing ornament to the absolute drop location
+      // Move existing placed ornament to the absolute drop location
       setIsSaving(true);
       socket.emit('move-ornament', {
         sessionId,
@@ -340,12 +355,24 @@ const WorkspacePage = () => {
       );
     } else {
       // Adding new ornament from inventory
-      const ornamentType = ornamentTypes.find(t => t.id === active.id);
+      let ornamentType = null;
+      
+      if (active.id.startsWith('inventory-')) {
+        // Extract ornamentId from "inventory-{ornamentId}-{index}" format
+        const parts = active.id.split('-');
+        // Remove 'inventory' prefix and last part (index)
+        const ornamentId = parts.slice(1, -1).join('-');
+        ornamentType = ornamentTypes.find(t => t.id === ornamentId);
+      } else {
+        // Fallback to old format
+        ornamentType = ornamentTypes.find(t => t.id === active.id);
+      }
+      
       if (!ornamentType) return;
 
       const newOrnament = {
-        id: uuidv4(),
         ...ornamentType,
+        id: uuidv4(), // Override ornamentType.id with a unique UUID
         position: clampedPosition,
         scale: 1,
         rotation: 0,
@@ -419,34 +446,50 @@ const WorkspacePage = () => {
     <div className="relative w-screen h-screen overflow-hidden">
       <BackgroundScene />
       <SnowEffect />
-      
-      {/* Fullscreen Button */}
+
+      {/* 👁️ Eye Toggle - Always Visible */}
       <button
-        onClick={toggleFullscreen}
-        className="fixed top-6 left-6 z-50 bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-xl border border-white/20 transition-all duration-300 hover:scale-110"
-        title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+        onClick={() => setIsUiVisible(!isUiVisible)}
+        className={`fixed bottom-6 right-6 z-50 p-4 rounded-full shadow-2xl transition-all duration-300 border-2 ${
+          isUiVisible
+            ? 'bg-white/10 hover:bg-white/20 text-white border-white/20'
+            : 'bg-christmas-red hover:bg-red-600 text-white border-white/50 scale-110 animate-pulse'
+        }`}
+        title={isUiVisible ? 'Hide Interface' : 'Show Interface'}
       >
-        <span className="text-2xl">
-          {isFullscreen ? '⛶' : '⛶'}
-        </span>
+        <span className="text-2xl">{isUiVisible ? '👁️' : '🙈'}</span>
       </button>
 
-      {/* Saving Indicator */}
-      {isSaving && (
-        <div className="fixed top-6 right-6 z-50 bg-white/10 text-white px-3 py-2 rounded-lg border border-white/20 backdrop-blur-sm flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse" />
-          <span className="text-sm">Saving...</span>
-        </div>
-      )}
-      {/* Saved Toast */}
-      {showSaved && (
-        <div className="fixed top-6 right-6 z-50 bg-green-600 text-white px-3 py-2 rounded-lg border border-white/10 backdrop-blur-sm flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-7.362 7.362a1 1 0 01-1.414 0L3.293 9.07a1 1 0 011.414-1.414l3.414 3.414 6.648-6.648a1 1 0 011.414 0z" clipRule="evenodd" />
-          </svg>
-          <span className="text-sm font-medium">Saved</span>
-        </div>
-      )}
+      {/* WRAPPER FOR UI ELEMENTS THAT HIDES THEM */}
+      <div className={`transition-opacity duration-500 ease-in-out ${isUiVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+        {/* Fullscreen Button */}
+        <button
+          onClick={toggleFullscreen}
+          className="fixed top-6 left-6 z-50 bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-xl border border-white/20 transition-all duration-300 hover:scale-110"
+          title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+        >
+          <span className="text-2xl">
+            {isFullscreen ? '⛶' : '⛶'}
+          </span>
+        </button>
+
+        {/* Saving Indicator */}
+        {isSaving && (
+          <div className="fixed top-6 right-6 z-50 bg-white/10 text-white px-3 py-2 rounded-lg border border-white/20 backdrop-blur-sm flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse" />
+            <span className="text-sm">Saving...</span>
+          </div>
+        )}
+        {/* Saved Toast */}
+        {showSaved && (
+          <div className="fixed top-6 right-6 z-50 bg-green-600 text-white px-3 py-2 rounded-lg border border-white/10 backdrop-blur-sm flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-7.362 7.362a1 1 0 01-1.414 0L3.293 9.07a1 1 0 011.414-1.414l3.414 3.414 6.648-6.648a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            <span className="text-sm font-medium">Saved</span>
+          </div>
+        )}
+      </div>
       
       {/* Multiplayer Cursors */}
       {otherCursors && otherCursors.size > 0 && (
@@ -470,15 +513,17 @@ const WorkspacePage = () => {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <MultiplayerControls
-          activeUsers={activeUsers}
-          sessionId={sessionId}
-          socket={socket}
-          currentTreeSize={currentTreeSize}
-        />
-        
-        <InventoryPanel />
-        <MusicPlayer />
+        <div className={`transition-opacity duration-500 ease-in-out ${isUiVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+          <MultiplayerControls
+            activeUsers={activeUsers}
+            sessionId={sessionId}
+            socket={socket}
+            currentTreeSize={currentTreeSize}
+          />
+          
+          <InventoryPanel />
+          <MusicPlayer />
+        </div>
         
         {/* FULL SCREEN DROPPABLE CANVAS */}
         <div 
